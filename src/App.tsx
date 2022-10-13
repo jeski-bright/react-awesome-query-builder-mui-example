@@ -1,26 +1,124 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useState, useCallback } from "react";
+import { Query, Builder, Utils as QbUtils } from "react-awesome-query-builder";
+// types
+import {
+  JsonGroup,
+  Config,
+  ImmutableTree,
+  BuilderProps
+} from "react-awesome-query-builder";
 
-function App() {
+import MuiConfig from 'react-awesome-query-builder/lib/config/mui';
+
+
+import "react-awesome-query-builder/lib/css/styles.css";
+// Choose your skin (ant/material/vanilla):
+const InitialConfig = MuiConfig; // or MaterialConfig or MuiConfig or BootstrapConfig or BasicConfig
+
+// You need to provide your own config. See below 'Config format'
+const config: Config = {
+  ...InitialConfig,
+  fields: {
+    qty: {
+      label: "Qty",
+      type: "number",
+      fieldSettings: {
+        min: 0
+      },
+      valueSources: ["value"],
+      preferWidgets: ["number"]
+    },
+    price: {
+      label: "Price",
+      type: "number",
+      valueSources: ["value"],
+      fieldSettings: {
+        min: 10,
+        max: 100
+      },
+      preferWidgets: ["slider", "rangeslider"]
+    },
+    color: {
+      label: "Color",
+      type: "select",
+      valueSources: ["value"],
+      fieldSettings: {
+        listValues: [
+          { value: "yellow", title: "Yellow" },
+          { value: "green", title: "Green" },
+          { value: "orange", title: "Orange" }
+        ]
+      }
+    },
+    is_promotion: {
+      label: "Promo?",
+      type: "boolean",
+      operators: ["equal"],
+      valueSources: ["value"]
+    }
+  }
+};
+
+// You can load query value from your backend storage (for saving see `Query.onChange()`)
+const queryValue: JsonGroup = { id: QbUtils.uuid(), type: "group" };
+
+export const Demo: React.FC = () => {
+  const [state, setState] = useState({
+    tree: QbUtils.checkTree(QbUtils.loadTree(queryValue), config),
+    config: config
+  });
+
+  const onChange = useCallback((immutableTree: ImmutableTree, config: Config) => {
+    // Tip: for better performance you can apply `throttle` - see `examples/demo`
+    setState(prevState => ({ ...prevState, tree: immutableTree, config: config }));
+
+    const jsonTree = QbUtils.getTree(immutableTree);
+    console.log(jsonTree);
+    // `jsonTree` can be saved to backend, and later loaded to `queryValue`
+  }, []);
+
+  const renderBuilder = useCallback((props: BuilderProps) => (
+    <div className="query-builder-container" style={{ padding: "10px" }}>
+      <div className="query-builder qb-lite">
+        <Builder {...props} />
+      </div>
+    </div>
+  ), []);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      <Query
+        {...config}
+        value={state.tree}
+        onChange={onChange}
+        renderBuilder={renderBuilder}
+      />
+      <div className="query-builder-result">
+        <div>
+          Query string:{" "}
+          <pre>
+            {JSON.stringify(QbUtils.queryString(state.tree, state.config))}
+          </pre>
+        </div>
+        <div>
+          MongoDb query:{" "}
+          <pre>
+            {JSON.stringify(QbUtils.mongodbFormat(state.tree, state.config))}
+          </pre>
+        </div>
+        <div>
+          SQL where:{" "}
+          <pre>
+            {JSON.stringify(QbUtils.sqlFormat(state.tree, state.config))}
+          </pre>
+        </div>
+        <div>
+          JsonLogic:{" "}
+          <pre>
+            {JSON.stringify(QbUtils.jsonLogicFormat(state.tree, state.config))}
+          </pre>
+        </div>
+      </div>
     </div>
   );
-}
-
-export default App;
+};
